@@ -72,17 +72,35 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const sendCommand = async (val) => {
+  const sendCommand = async (value) => {
     setSendingCmd(true);
+
     try {
-      await fetch(
-        `https://api.thingspeak.com/update?api_key=${WRITE_API_KEY}&field4=${val}`,
-        { cache: "no-store" }
-      );
-      setActiveLed(val);
-    } catch (err) {
-      console.error("Command failed:", err);
+      const url = `https://api.thingspeak.com/update.json`;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          api_key: WRITE_API_KEY,
+          field4: value,
+        }),
+      });
+
+      const result = await res.json();
+      console.log("ThingSpeak result:", result);
+
+      if (result === 0) {
+        console.warn("ThingSpeak rejected: rate limit or error");
+      } else {
+        setActiveLed(value);
+      }
+    } catch (e) {
+      console.error("Command failed:", e);
     }
+
     setSendingCmd(false);
   };
 
