@@ -1,248 +1,620 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
-// --- CONFIGURATION ---
 const CHANNEL_ID = "3197859";
 const READ_API_KEY = "P9HPUKKZEZHVM75O";
 const WRITE_API_KEY = "CK5P00B2PTQES8B0";
 
 function App() {
-  // --- STATE MANAGEMENT ---
-  const [data, setData] = useState({
+  const [currentData, setCurrentData] = useState({
     temp: "--",
     humidity: "--",
     signal: "--",
-    lastUpdate: "Waiting for data...",
+    lastUpdate: "Waiting...",
   });
-  const [loading, setLoading] = useState(true);
+  const [historyData, setHistoryData] = useState([]);
   const [sendingCmd, setSendingCmd] = useState(false);
-  const [activeLed, setActiveLed] = useState(0); // 0 = Off
+  const [activeLed, setActiveLed] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  // --- 1. FETCH DATA (MONITORING) ---
   const fetchData = async () => {
     try {
       const response = await fetch(
-        `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?api_key=${READ_API_KEY}`
+        `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${READ_API_KEY}&results=20`
       );
-      const result = await response.json();
+      const data = await response.json();
+      const feeds = data.feeds;
 
-      setData({
-        temp: result.field1 ? parseFloat(result.field1).toFixed(1) : "--",
-        humidity: result.field2 ? parseFloat(result.field2).toFixed(1) : "--",
-        signal: result.field3 ? result.field3 : "--",
-        lastUpdate: new Date().toLocaleTimeString(),
-      });
-      setLoading(false);
+      if (feeds.length > 0) {
+        const formattedHistory = feeds.map((feed) => ({
+          time: new Date(feed.created_at).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          temp: parseFloat(feed.field1),
+          humidity: parseFloat(feed.field2),
+        }));
+        setHistoryData(formattedHistory);
+
+        const lastEntry = feeds[feeds.length - 1];
+        setCurrentData({
+          temp: lastEntry.field1
+            ? parseFloat(lastEntry.field1).toFixed(1)
+            : "--",
+          humidity: lastEntry.field2
+            ? parseFloat(lastEntry.field2).toFixed(1)
+            : "--",
+          signal: lastEntry.field3 ? lastEntry.field3 : "--",
+          lastUpdate: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        });
+        setLoading(false);
+      }
     } catch (err) {
       console.error("Error fetching data:", err);
       setLoading(false);
     }
   };
 
-  // Run on startup and every 15 seconds
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
   }, []);
 
-  // --- 2. SEND COMMANDS (CONTROL) ---
   const sendCommand = async (val) => {
     setSendingCmd(true);
     try {
-      // Send command to Field 4
+      // ADDED: The second argument { cache: "no-store" }
       await fetch(
-        `https://api.thingspeak.com/update?api_key=${WRITE_API_KEY}&field4=${val}`
+        `https://api.thingspeak.com/update?api_key=${WRITE_API_KEY}&field4=${val}`,
+        { cache: "no-store" }
       );
       setActiveLed(val);
-      alert(`Command sent! Wait 15 seconds for the LED to switch.`);
     } catch (err) {
-      alert("Error sending command. Check internet.");
+      console.error("Command failed:", err);
     }
     setSendingCmd(false);
   };
 
-  // --- STYLES (CSS-IN-JS) ---
-  const styles = {
-    container: {
-      minHeight: "100vh",
-      width: "100vw",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-      color: "#333",
-    },
-    glassCard: {
-      background: "rgba(255, 255, 255, 0.7)",
-      backdropFilter: "blur(20px)",
-      WebkitBackdropFilter: "blur(20px)",
-      borderRadius: "24px",
-      border: "1px solid rgba(255, 255, 255, 0.3)",
-      boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
-      padding: "40px",
-      width: "90%",
-      maxWidth: "400px",
-      textAlign: "center",
-    },
-    header: {
-      marginBottom: "30px",
-    },
-    title: {
-      fontSize: "28px",
-      fontWeight: "800",
-      margin: "0",
-      color: "#2d3436",
-      letterSpacing: "-0.5px",
-    },
-    subtitle: {
-      fontSize: "14px",
-      color: "#636e72",
-      marginTop: "5px",
-    },
-    grid: {
-      display: "grid",
-      gap: "15px",
-      marginBottom: "30px",
-    },
-    metricCard: {
-      background: "white",
-      borderRadius: "16px",
-      padding: "15px",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-      transition: "transform 0.2s",
-    },
-    metricLabel: {
-      fontSize: "14px",
-      color: "#b2bec3",
-      fontWeight: "600",
-      textTransform: "uppercase",
-    },
-    metricValue: {
-      fontSize: "24px",
-      fontWeight: "bold",
-      color: "#2d3436",
-    },
-    controlSection: {
-      borderTop: "1px solid rgba(0,0,0,0.1)",
-      paddingTop: "25px",
-    },
-    controlTitle: {
-      fontSize: "14px",
-      fontWeight: "700",
-      color: "#636e72",
-      marginBottom: "15px",
-      textTransform: "uppercase",
-      letterSpacing: "1px",
-    },
-    buttonGrid: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: "10px",
-    },
-    button: (color, isActive) => ({
-      padding: "12px",
-      border: "none",
-      borderRadius: "12px",
-      background: isActive ? color : "#e0e0e0",
-      color: isActive ? "white" : "#636e72",
-      fontWeight: "bold",
-      cursor: sendingCmd ? "not-allowed" : "pointer",
-      opacity: sendingCmd ? 0.7 : 1,
-      transition: "all 0.3s ease",
-      boxShadow: isActive ? `0 4px 12px ${color}66` : "none",
-    }),
-    footer: {
-      marginTop: "20px",
-      fontSize: "12px",
-      color: "#636e72",
-    },
+  const getGradientColors = (temp) => {
+    const temperature = parseFloat(temp);
+
+    if (isNaN(temperature)) {
+      return {
+        color1: "#667eea",
+        color2: "#764ba2",
+        color3: "#5B86E5",
+        color4: "#36D1DC",
+      };
+    }
+
+    if (temperature < 15) {
+      return {
+        color1: "#667eea",
+        color2: "#764ba2",
+        color3: "#5B86E5",
+        color4: "#36D1DC",
+      };
+    } else if (temperature < 20) {
+      return {
+        color1: "#23a6d5",
+        color2: "#23d5ab",
+        color3: "#84fab0",
+        color4: "#8fd3f4",
+      };
+    } else if (temperature < 25) {
+      return {
+        color1: "#f093fb",
+        color2: "#f5576c",
+        color3: "#fbc2eb",
+        color4: "#a6c1ee",
+      };
+    } else if (temperature < 30) {
+      return {
+        color1: "#fa709a",
+        color2: "#fee140",
+        color3: "#f87171",
+        color4: "#fbbf24",
+      };
+    } else if (temperature < 35) {
+      return {
+        color1: "#ee7752",
+        color2: "#e73c7e",
+        color3: "#f97316",
+        color4: "#fb923c",
+      };
+    } else {
+      return {
+        color1: "#dc2626",
+        color2: "#b91c1c",
+        color3: "#ef4444",
+        color4: "#f87171",
+      };
+    }
   };
 
+  const gradientColors = getGradientColors(currentData.temp);
+
   return (
-    <div style={styles.container}>
-      <div style={styles.glassCard}>
-        {/* HEADER */}
-        <div style={styles.header}>
-          <h1 style={styles.title}>IoT Dashboard</h1>
-          <p style={styles.subtitle}>Smart Environment Monitor</p>
+    <div
+      style={{
+        minHeight: "100vh",
+        width: "100vw",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        background: `linear-gradient(-45deg, ${gradientColors.color1}, ${gradientColors.color2}, ${gradientColors.color3}, ${gradientColors.color4})`,
+        backgroundSize: "400% 400%",
+        animation: "gradient 15s ease infinite",
+        fontFamily: "'Inter', -apple-system, sans-serif",
+        padding: "20px",
+        boxSizing: "border-box",
+        transition: "background 1s ease",
+      }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        
+        * {
+          box-sizing: border-box;
+        }
+
+        @keyframes gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        .glass-card {
+          animation: slideIn 0.6s ease-out;
+        }
+
+        .metric-card {
+          transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .led-button {
+          transition: all 0.2s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .led-button:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .led-button:active:not(:disabled) {
+          transform: translateY(0);
+        }
+
+        .led-button::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+          transition: left 0.5s;
+        }
+
+        .led-button:hover::before {
+          left: 100%;
+        }
+
+        .status-indicator {
+          animation: pulse 2s ease-in-out infinite;
+        }
+      `}</style>
+
+      <div
+        className="glass-card"
+        style={{
+          background: "rgba(255, 255, 255, 0.2)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          borderRadius: "32px",
+          border: "1px solid rgba(255, 255, 255, 0.4)",
+          boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.2)",
+          padding: "40px",
+          width: "100%",
+          maxWidth: "600px",
+        }}
+      >
+        {/* Header */}
+        <div style={{ marginBottom: "32px", textAlign: "center" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              background: "rgba(255, 255, 255, 0.3)",
+              padding: "6px 16px",
+              borderRadius: "24px",
+              marginBottom: "12px",
+            }}
+          >
+            <div
+              className="status-indicator"
+              style={{
+                width: "8px",
+                height: "8px",
+                background: loading ? "#fbbf24" : "#4ade80",
+                borderRadius: "50%",
+                marginRight: "8px",
+              }}
+            />
+            <span
+              style={{
+                fontSize: "13px",
+                fontWeight: "600",
+                color: "white",
+                letterSpacing: "0.5px",
+              }}
+            >
+              {loading ? "Connecting..." : "Live Monitor"}
+            </span>
+          </div>
+          <h1
+            style={{
+              margin: "0 0 8px 0",
+              fontSize: "32px",
+              fontWeight: "800",
+              color: "white",
+              textShadow: "0 2px 8px rgba(0,0,0,0.1)",
+              letterSpacing: "-0.5px",
+            }}
+          >
+            IoT Dashboard
+          </h1>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "14px",
+              color: "rgba(255, 255, 255, 0.9)",
+              fontWeight: "500",
+            }}
+          >
+            Real-time Environment Monitoring
+          </p>
         </div>
 
-        {/* MONITORING SECTION */}
-        <div style={styles.grid}>
-          {/* Temperature */}
-          <div style={styles.metricCard}>
-            <div>
-              <div style={styles.metricLabel}>Temperature</div>
-              <div style={styles.metricValue}>{data.temp}°C</div>
+        {/* Metric Cards */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: "12px",
+            marginBottom: "24px",
+          }}
+        >
+          {[
+            {
+              label: "Temperature",
+              value: currentData.temp,
+              unit: "°C",
+              icon: "🌡️",
+            },
+            {
+              label: "Humidity",
+              value: currentData.humidity,
+              unit: "%",
+              icon: "💧",
+            },
+            {
+              label: "Signal",
+              value: currentData.signal,
+              unit: "dBm",
+              icon: "📡",
+            },
+          ].map((metric, idx) => (
+            <div
+              key={idx}
+              className="metric-card"
+              style={{
+                background: "rgba(255, 255, 255, 0.85)",
+                borderRadius: "16px",
+                padding: "16px",
+                textAlign: "center",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
+              }}
+            >
+              <div style={{ fontSize: "24px", marginBottom: "4px" }}>
+                {metric.icon}
+              </div>
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "#6b7280",
+                  fontWeight: "700",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  marginBottom: "6px",
+                }}
+              >
+                {metric.label}
+              </div>
+              <div
+                style={{
+                  fontSize: "24px",
+                  fontWeight: "800",
+                  color: "#1f2937",
+                }}
+              >
+                {loading ? "..." : metric.value}
+                <span
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    color: "#6b7280",
+                    marginLeft: "2px",
+                  }}
+                >
+                  {metric.unit}
+                </span>
+              </div>
             </div>
-            <div style={{ fontSize: "24px" }}>🌡️</div>
-          </div>
+          ))}
+        </div>
 
-          {/* Humidity */}
-          <div style={styles.metricCard}>
+        {/* Chart Container */}
+        <div
+          style={{
+            background: "rgba(255, 255, 255, 0.9)",
+            borderRadius: "20px",
+            padding: "20px",
+            marginBottom: "24px",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "16px",
+            }}
+          >
             <div>
-              <div style={styles.metricLabel}>Humidity</div>
-              <div style={styles.metricValue}>{data.humidity}%</div>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "14px",
+                  fontWeight: "700",
+                  color: "#1f2937",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                Temperature Trend
+              </h3>
+              <p
+                style={{
+                  margin: "4px 0 0 0",
+                  fontSize: "12px",
+                  color: "#6b7280",
+                }}
+              >
+                Last 20 readings
+              </p>
             </div>
-            <div style={{ fontSize: "24px" }}>💧</div>
           </div>
-
-          {/* Network Signal (The 3rd Sensor) */}
-          <div style={styles.metricCard}>
-            <div>
-              <div style={styles.metricLabel}>Signal Strength</div>
-              <div style={styles.metricValue}>{data.signal} dBm</div>
-            </div>
-            <div style={{ fontSize: "24px" }}>📶</div>
+          <div style={{ width: "100%", height: 180 }}>
+            <ResponsiveContainer>
+              <LineChart data={historyData}>
+                <defs>
+                  <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f87171" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#f87171" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis
+                  dataKey="time"
+                  tick={{ fontSize: 11, fill: "#6b7280" }}
+                  stroke="#d1d5db"
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  domain={["auto", "auto"]}
+                  tick={{ fontSize: 11, fill: "#6b7280" }}
+                  stroke="#d1d5db"
+                  width={35}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "rgba(255, 255, 255, 0.95)",
+                    border: "none",
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="temp"
+                  stroke="#f87171"
+                  strokeWidth={3}
+                  dot={{ fill: "#ef4444", strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6 }}
+                  animationDuration={800}
+                  fill="url(#tempGradient)"
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* CONTROL SECTION */}
-        <div style={styles.controlSection}>
-          <div style={styles.controlTitle}>Remote Control</div>
-
-          <div style={styles.buttonGrid}>
-            <button
-              onClick={() => sendCommand(1)}
-              style={styles.button("#ff7675", activeLed === 1)}
-              disabled={sendingCmd}
-            >
-              🔴 RED ON
-            </button>
-
-            <button
-              onClick={() => sendCommand(2)}
-              style={styles.button("#fdcb6e", activeLed === 2)}
-              disabled={sendingCmd}
-            >
-              🟡 YEL ON
-            </button>
-
-            <button
-              onClick={() => sendCommand(3)}
-              style={styles.button("#00b894", activeLed === 3)}
-              disabled={sendingCmd}
-            >
-              🟢 GRN ON
-            </button>
-
-            <button
-              onClick={() => sendCommand(0)}
-              style={styles.button("#2d3436", activeLed === 0)}
-              disabled={sendingCmd}
-            >
-              ⚫ ALL OFF
-            </button>
+        {/* LED Control Section */}
+        <div
+          style={{
+            background: "rgba(255, 255, 255, 0.2)",
+            borderRadius: "20px",
+            padding: "20px",
+            marginBottom: "16px",
+          }}
+        >
+          <h3
+            style={{
+              margin: "0 0 16px 0",
+              fontSize: "14px",
+              fontWeight: "700",
+              color: "white",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              textAlign: "center",
+            }}
+          >
+            LED Controls
+          </h3>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, 1fr)",
+              gap: "12px",
+            }}
+          >
+            {[
+              {
+                val: 1,
+                label: "Red LED",
+                color: "#ef4444",
+                activeColor: "#dc2626",
+              },
+              {
+                val: 2,
+                label: "Yellow LED",
+                color: "#fbbf24",
+                activeColor: "#f59e0b",
+              },
+              {
+                val: 3,
+                label: "Green LED",
+                color: "#10b981",
+                activeColor: "#059669",
+              },
+              {
+                val: 0,
+                label: "All Off",
+                color: "#6b7280",
+                activeColor: "#4b5563",
+              },
+            ].map((led) => (
+              <button
+                key={led.val}
+                className="led-button"
+                onClick={() => sendCommand(led.val)}
+                disabled={sendingCmd}
+                style={{
+                  padding: "16px",
+                  border: "none",
+                  borderRadius: "12px",
+                  fontSize: "14px",
+                  fontWeight: "700",
+                  cursor: sendingCmd ? "not-allowed" : "pointer",
+                  background:
+                    activeLed === led.val
+                      ? led.activeColor
+                      : "rgba(255, 255, 255, 0.9)",
+                  color: activeLed === led.val ? "white" : "#1f2937",
+                  boxShadow:
+                    activeLed === led.val
+                      ? `0 4px 12px ${led.color}40`
+                      : "0 2px 4px rgba(0, 0, 0, 0.05)",
+                  opacity: sendingCmd ? 0.6 : 1,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "10px",
+                      height: "10px",
+                      borderRadius: "50%",
+                      background: activeLed === led.val ? "white" : led.color,
+                      boxShadow:
+                        activeLed === led.val ? `0 0 8px ${led.color}` : "none",
+                    }}
+                  />
+                  {led.label}
+                </div>
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* FOOTER */}
-        <div style={styles.footer}>
-          {sendingCmd ? "Sending command..." : `Last Sync: ${data.lastUpdate}`}
+        {/* Footer */}
+        <div
+          style={{
+            textAlign: "center",
+            padding: "12px 0 0 0",
+            borderTop: "1px solid rgba(255, 255, 255, 0.2)",
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: "12px",
+              color: "rgba(255, 255, 255, 0.8)",
+              fontWeight: "500",
+            }}
+          >
+            {sendingCmd ? (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <span style={{ animation: "spin 1s linear infinite" }}>⟳</span>
+                Sending command...
+              </span>
+            ) : (
+              `Last updated: ${currentData.lastUpdate}`
+            )}
+          </p>
         </div>
       </div>
     </div>
