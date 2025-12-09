@@ -11,7 +11,7 @@ import {
 
 const CHANNEL_ID = "3197859";
 const READ_API_KEY = "P9HPUKKZEZHVM75O";
-const WRITE_API_KEY = "CK5P00B2PTQES8B0";
+const WRITE_API_KEY = "EV4EN8UDERC0PQTA";
 
 function App() {
   const [currentData, setCurrentData] = useState({
@@ -75,7 +75,6 @@ function App() {
   const sendCommand = async (val) => {
     setSendingCmd(true);
     try {
-      // ADDED: The second argument { cache: "no-store" }
       await fetch(
         `https://api.thingspeak.com/update?api_key=${WRITE_API_KEY}&field4=${val}`,
         { cache: "no-store" }
@@ -157,10 +156,12 @@ function App() {
         background: `linear-gradient(-45deg, ${gradientColors.color1}, ${gradientColors.color2}, ${gradientColors.color3}, ${gradientColors.color4})`,
         backgroundSize: "400% 400%",
         animation: "gradient 15s ease infinite",
-        fontFamily: "'Inter', -apple-system, sans-serif",
-        padding: "20px",
+        fontFamily:
+          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        padding: "12px",
         boxSizing: "border-box",
         transition: "background 1s ease",
+        overflow: "auto",
       }}
     >
       <style>{`
@@ -168,6 +169,15 @@ function App() {
         
         * {
           box-sizing: border-box;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+          margin: 0;
+          padding: 0;
+          overflow-x: hidden;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
         }
 
         @keyframes gradient {
@@ -204,24 +214,32 @@ function App() {
           transition: all 0.3s ease;
         }
 
-        .metric-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        @media (hover: hover) {
+          .metric-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+          }
+
+          .led-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          }
+
+          .led-button:hover::before {
+            left: 100%;
+          }
         }
 
         .led-button {
           transition: all 0.2s ease;
           position: relative;
           overflow: hidden;
-        }
-
-        .led-button:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          touch-action: manipulation;
+          user-select: none;
         }
 
         .led-button:active:not(:disabled) {
-          transform: translateY(0);
+          transform: scale(0.95);
         }
 
         .led-button::before {
@@ -235,12 +253,24 @@ function App() {
           transition: left 0.5s;
         }
 
-        .led-button:hover::before {
-          left: 100%;
-        }
-
         .status-indicator {
           animation: pulse 2s ease-in-out infinite;
+        }
+
+        /* Mobile specific optimizations */
+        @media (max-width: 640px) {
+          .recharts-surface {
+            overflow: visible;
+          }
+          
+          .recharts-tooltip-wrapper {
+            z-index: 100;
+          }
+        }
+
+        /* Prevent zoom on double tap on iOS */
+        button, a {
+          touch-action: manipulation;
         }
       `}</style>
 
@@ -250,16 +280,22 @@ function App() {
           background: "rgba(255, 255, 255, 0.2)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
-          borderRadius: "32px",
+          borderRadius: "clamp(20px, 5vw, 32px)",
           border: "1px solid rgba(255, 255, 255, 0.4)",
           boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.2)",
-          padding: "40px",
+          padding: "clamp(20px, 5vw, 40px)",
           width: "100%",
           maxWidth: "600px",
+          margin: "auto",
         }}
       >
         {/* Header */}
-        <div style={{ marginBottom: "32px", textAlign: "center" }}>
+        <div
+          style={{
+            marginBottom: "clamp(20px, 4vw, 32px)",
+            textAlign: "center",
+          }}
+        >
           <div
             style={{
               display: "inline-flex",
@@ -282,7 +318,7 @@ function App() {
             />
             <span
               style={{
-                fontSize: "13px",
+                fontSize: "clamp(11px, 2.5vw, 13px)",
                 fontWeight: "600",
                 color: "white",
                 letterSpacing: "0.5px",
@@ -294,7 +330,7 @@ function App() {
           <h1
             style={{
               margin: "0 0 8px 0",
-              fontSize: "32px",
+              fontSize: "clamp(24px, 6vw, 32px)",
               fontWeight: "800",
               color: "white",
               textShadow: "0 2px 8px rgba(0,0,0,0.1)",
@@ -306,7 +342,7 @@ function App() {
           <p
             style={{
               margin: 0,
-              fontSize: "14px",
+              fontSize: "clamp(12px, 3vw, 14px)",
               color: "rgba(255, 255, 255, 0.9)",
               fontWeight: "500",
             }}
@@ -319,9 +355,9 @@ function App() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "12px",
-            marginBottom: "24px",
+            gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))",
+            gap: "clamp(8px, 2vw, 12px)",
+            marginBottom: "clamp(16px, 4vw, 24px)",
           }}
         >
           {[
@@ -349,38 +385,44 @@ function App() {
               className="metric-card"
               style={{
                 background: "rgba(255, 255, 255, 0.85)",
-                borderRadius: "16px",
-                padding: "16px",
+                borderRadius: "clamp(12px, 3vw, 16px)",
+                padding: "clamp(12px, 3vw, 16px)",
                 textAlign: "center",
                 boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
               }}
             >
-              <div style={{ fontSize: "24px", marginBottom: "4px" }}>
+              <div
+                style={{
+                  fontSize: "clamp(20px, 5vw, 24px)",
+                  marginBottom: "4px",
+                }}
+              >
                 {metric.icon}
               </div>
               <div
                 style={{
-                  fontSize: "11px",
+                  fontSize: "clamp(9px, 2vw, 11px)",
                   color: "#6b7280",
                   fontWeight: "700",
                   textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                  marginBottom: "6px",
+                  letterSpacing: "0.3px",
+                  marginBottom: "4px",
                 }}
               >
                 {metric.label}
               </div>
               <div
                 style={{
-                  fontSize: "24px",
+                  fontSize: "clamp(20px, 5vw, 24px)",
                   fontWeight: "800",
                   color: "#1f2937",
+                  lineHeight: "1.2",
                 }}
               >
                 {loading ? "..." : metric.value}
                 <span
                   style={{
-                    fontSize: "14px",
+                    fontSize: "clamp(12px, 3vw, 14px)",
                     fontWeight: "600",
                     color: "#6b7280",
                     marginLeft: "2px",
@@ -397,9 +439,9 @@ function App() {
         <div
           style={{
             background: "rgba(255, 255, 255, 0.9)",
-            borderRadius: "20px",
-            padding: "20px",
-            marginBottom: "24px",
+            borderRadius: "clamp(16px, 4vw, 20px)",
+            padding: "clamp(16px, 4vw, 20px)",
+            marginBottom: "clamp(16px, 4vw, 24px)",
             boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
           }}
         >
@@ -408,14 +450,16 @@ function App() {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: "16px",
+              marginBottom: "clamp(12px, 3vw, 16px)",
+              flexWrap: "wrap",
+              gap: "8px",
             }}
           >
             <div>
               <h3
                 style={{
                   margin: 0,
-                  fontSize: "14px",
+                  fontSize: "clamp(12px, 3vw, 14px)",
                   fontWeight: "700",
                   color: "#1f2937",
                   textTransform: "uppercase",
@@ -427,7 +471,7 @@ function App() {
               <p
                 style={{
                   margin: "4px 0 0 0",
-                  fontSize: "12px",
+                  fontSize: "clamp(10px, 2.5vw, 12px)",
                   color: "#6b7280",
                 }}
               >
@@ -435,9 +479,18 @@ function App() {
               </p>
             </div>
           </div>
-          <div style={{ width: "100%", height: 180 }}>
+          <div
+            style={{
+              width: "100%",
+              height: "clamp(140px, 35vw, 180px)",
+              minHeight: "140px",
+            }}
+          >
             <ResponsiveContainer>
-              <LineChart data={historyData}>
+              <LineChart
+                data={historyData}
+                margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
+              >
                 <defs>
                   <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#f87171" stopOpacity={0.3} />
@@ -447,13 +500,14 @@ function App() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis
                   dataKey="time"
-                  tick={{ fontSize: 11, fill: "#6b7280" }}
+                  tick={{ fontSize: 10, fill: "#6b7280" }}
                   stroke="#d1d5db"
                   interval="preserveStartEnd"
+                  minTickGap={30}
                 />
                 <YAxis
                   domain={["auto", "auto"]}
-                  tick={{ fontSize: 11, fill: "#6b7280" }}
+                  tick={{ fontSize: 10, fill: "#6b7280" }}
                   stroke="#d1d5db"
                   width={35}
                 />
@@ -463,15 +517,16 @@ function App() {
                     border: "none",
                     borderRadius: "8px",
                     boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                    fontSize: "12px",
                   }}
                 />
                 <Line
                   type="monotone"
                   dataKey="temp"
                   stroke="#f87171"
-                  strokeWidth={3}
-                  dot={{ fill: "#ef4444", strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6 }}
+                  strokeWidth={2.5}
+                  dot={{ fill: "#ef4444", strokeWidth: 2, r: 3 }}
+                  activeDot={{ r: 5 }}
                   animationDuration={800}
                   fill="url(#tempGradient)"
                 />
@@ -484,15 +539,15 @@ function App() {
         <div
           style={{
             background: "rgba(255, 255, 255, 0.2)",
-            borderRadius: "20px",
-            padding: "20px",
-            marginBottom: "16px",
+            borderRadius: "clamp(16px, 4vw, 20px)",
+            padding: "clamp(16px, 4vw, 20px)",
+            marginBottom: "clamp(12px, 3vw, 16px)",
           }}
         >
           <h3
             style={{
-              margin: "0 0 16px 0",
-              fontSize: "14px",
+              margin: "0 0 clamp(12px, 3vw, 16px) 0",
+              fontSize: "clamp(12px, 3vw, 14px)",
               fontWeight: "700",
               color: "white",
               textTransform: "uppercase",
@@ -506,7 +561,7 @@ function App() {
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(2, 1fr)",
-              gap: "12px",
+              gap: "clamp(8px, 2vw, 12px)",
             }}
           >
             {[
@@ -541,10 +596,10 @@ function App() {
                 onClick={() => sendCommand(led.val)}
                 disabled={sendingCmd}
                 style={{
-                  padding: "16px",
+                  padding: "clamp(12px, 3vw, 16px)",
                   border: "none",
-                  borderRadius: "12px",
-                  fontSize: "14px",
+                  borderRadius: "clamp(10px, 2.5vw, 12px)",
+                  fontSize: "clamp(12px, 3vw, 14px)",
                   fontWeight: "700",
                   cursor: sendingCmd ? "not-allowed" : "pointer",
                   background:
@@ -557,6 +612,7 @@ function App() {
                       ? `0 4px 12px ${led.color}40`
                       : "0 2px 4px rgba(0, 0, 0, 0.05)",
                   opacity: sendingCmd ? 0.6 : 1,
+                  minHeight: "48px",
                 }}
               >
                 <div
@@ -575,9 +631,10 @@ function App() {
                       background: activeLed === led.val ? "white" : led.color,
                       boxShadow:
                         activeLed === led.val ? `0 0 8px ${led.color}` : "none",
+                      flexShrink: 0,
                     }}
                   />
-                  {led.label}
+                  <span style={{ whiteSpace: "nowrap" }}>{led.label}</span>
                 </div>
               </button>
             ))}
@@ -588,14 +645,14 @@ function App() {
         <div
           style={{
             textAlign: "center",
-            padding: "12px 0 0 0",
+            padding: "clamp(8px, 2vw, 12px) 0 0 0",
             borderTop: "1px solid rgba(255, 255, 255, 0.2)",
           }}
         >
           <p
             style={{
               margin: 0,
-              fontSize: "12px",
+              fontSize: "clamp(10px, 2.5vw, 12px)",
               color: "rgba(255, 255, 255, 0.8)",
               fontWeight: "500",
             }}
